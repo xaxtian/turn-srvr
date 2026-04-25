@@ -1,0 +1,45 @@
+version: "3.9"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Docker Compose para desplegar coturn + turn-service juntos en un VPS.
+#
+# Uso:
+#   1. Copia .env.example → .env y rellena los valores
+#   2. Coloca los certificados SSL en ./certs/ (ver README)
+#   3. docker-compose up -d
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+
+  # ── Servidor TURN (coturn) ─────────────────────────────────────────────────
+  coturn:
+    image: coturn/coturn:latest
+    restart: unless-stopped
+    network_mode: host     # necesario para que UDP funcione correctamente en Linux
+    volumes:
+      - ./coturn/turnserver.conf:/etc/coturn/turnserver.conf:ro
+      - ./certs:/etc/letsencrypt/live/${TURN_SERVER_HOST}:ro
+    command: ["-c", "/etc/coturn/turnserver.conf"]
+    healthcheck:
+      test: ["CMD", "turnutils_uclient", "-T", "127.0.0.1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ── API de credenciales TURN (turn-service) ────────────────────────────────
+  turn-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+    env_file:
+      - .env
+    depends_on:
+      - coturn
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3

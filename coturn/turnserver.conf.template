@@ -1,0 +1,57 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# turnserver.conf — Plantilla de configuración para coturn
+#
+# Reemplaza las variables {{VAR}} con tus valores reales.
+# En el docker-compose.yml esto se hace via variables de entorno.
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Dirección IP pública del servidor (la IP de tu VPS)
+external-ip={{TURN_PUBLIC_IP}}
+
+# Escuchar en todas las interfaces
+listening-ip=0.0.0.0
+
+# Puertos estándar TURN
+listening-port=3478
+tls-listening-port=5349
+
+# Rango de puertos para el media relay (audio/vídeo)
+# Abre estos puertos en el firewall con: ufw allow 49152:65535/udp
+min-port=49152
+max-port=65535
+
+# Nombre del dominio (debe coincidir con el certificado SSL)
+realm={{TURN_DOMAIN}}
+server-name={{TURN_DOMAIN}}
+
+# ─── Autenticación HMAC (REST API) ───────────────────────────────────────────
+# Activa credenciales temporales firmadas con HMAC-SHA1.
+# El secreto DEBE ser idéntico al TURN_SECRET del turn-service.
+use-auth-secret
+static-auth-secret={{TURN_SECRET}}
+
+# ─── SSL/TLS ─────────────────────────────────────────────────────────────────
+# Rutas dentro del contenedor Docker (montadas como volumen)
+cert=/etc/letsencrypt/live/{{TURN_DOMAIN}}/fullchain.pem
+pkey=/etc/letsencrypt/live/{{TURN_DOMAIN}}/privkey.pem
+
+# ─── Seguridad ───────────────────────────────────────────────────────────────
+# No permite relay a loopback ni rangos privados (evita SSRF)
+no-loopback-peers
+no-multicast-peers
+
+# Fuerza el uso de credenciales (no permite relay anónimo)
+no-auth
+
+# Deshabilitar telnet de administración en producción
+no-cli
+
+# ─── Rendimiento ─────────────────────────────────────────────────────────────
+# Número de procesos worker (0 = auto-detectar CPUs)
+proc-user=turnserver
+proc-group=turnserver
+
+# ─── Logs ────────────────────────────────────────────────────────────────────
+log-file=stdout
+new-log-timestamp
+simple-log
